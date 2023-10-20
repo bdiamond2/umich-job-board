@@ -14,7 +14,7 @@ class UMichJob:
         self.end_dt = ''
         self.salary_low = ''
         self.salary_high = ''
-        self.career_interest = ''
+        self.career_interests = []
     
     def __str__(self):
         return f'{self.title} ({self.job_id})' if self.title != '' else self.url 
@@ -92,25 +92,29 @@ def get_job_info(job):
         elif 'department' in h3_text:
             job.dept = p_text
         elif 'date' in h3_text:
-            date_range = p_text.split(' - ')
+            date_range = p_text.split('-')
             if len(date_range) > 0:
-                job.start_dt = date_range[0]
+                job.start_dt = date_range[0].strip()
             if len(date_range) > 1:
-                job.end_dt = date_range[1]
+                job.end_dt = date_range[1].strip()
         elif 'salary' in h3_text:
-            salary_range = p_text.split(' - ')
+            salary_range = p_text.split('-')
             if len(salary_range) > 0:
-                job.salary_low = salary_range[0]
+                job.salary_low = salary_range[0].strip()
             if len(salary_range) > 1:
-                job.salary_low = salary_range[1]
+                job.salary_high = salary_range[1].strip()
         elif 'interest' in h3_text:
             interests = div.find_all('p')
             for i in interests:
-                job.career_interest += ';' + i.text
-            job.career_interest = job.career_interest[1:]
+                job.career_interests.append(i.text)
+            # job.career_interests = job.career_interest[1:]
 
 def main():
-    jobs = get_jobs()
+    try:
+        jobs = get_jobs()
+    except:
+        print('Error establishing connection')
+        return
 
     jobs = list(set(jobs))
 
@@ -119,20 +123,36 @@ def main():
     count = 0
     for job in jobs:
         count += 1
+        attempts = 1
+        max_attempts = 5
         print(f'({count}) {job}')
         try:
             get_job_info(job)
         except:
-            print(f'Error scraping info for job {job}')
+            print(f'Error scraping info for job {job}, trying again...')
+            while attempts <= max_attempts:
+                try:
+                    get_job_info(job)
+                    break
+                except:
+                    print(f'Failed attempt {attempts}')
+                    attempts += 1
+                    if attempts > max_attempts:
+                        print('Failed all attempts, moving on...')
 
     job_dicts = []
+    interest_dicts = []
 
     for job in jobs:
         job_dicts.append(vars(job))
+        for interest in job.career_interests:
+            interest_dicts.append({'job_id': job.job_id, 'career_interest': interest})
         
-    df = pd.DataFrame(job_dicts)
+    df_jobs = pd.DataFrame(job_dicts)
+    df_interests = pd.DataFrame(interest_dicts)
 
-    df.to_csv('umich_jobs.csv', index=False)
+    df_jobs.to_csv('umich_jobs.csv', index=False)
+    df_interests.to_csv('umich_job_interests.csv', index=False)
 
 if __name__ == "__main__":
     main()

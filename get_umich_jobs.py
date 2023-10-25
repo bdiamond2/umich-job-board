@@ -107,16 +107,29 @@ def get_job_info(job):
             interests = div.find_all('p')
             for i in interests:
                 job.career_interests.append(i.text)
-            # job.career_interests = job.career_interest[1:]
 
 def main():
     try:
-        jobs = get_jobs()
+        # jobs = get_jobs()
+        print("\nSearching IT jobs...")
+        jobs = get_jobs(career_interest=210)
+
+        print("Searching 'analyst' jobs...")
+        jobs.extend(get_jobs(title='analyst'))
+
+        print("Searching 'data' jobs...")
+        jobs.extend(get_jobs(title='data'))
+
+        print("Searching 'python' jobs...")
+        jobs.extend(get_jobs(keyword='python'))
+
+        print("Searching 'SQL' jobs...")
+        jobs.extend(get_jobs(keyword='sql'))
+        
+        jobs = list(set(jobs))
     except:
         print('Error establishing connection')
         return
-
-    jobs = list(set(jobs))
 
     print(f'{len(jobs)} jobs found')
     print('Scraping job info...')

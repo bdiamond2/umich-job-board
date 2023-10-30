@@ -1,4 +1,4 @@
-import get_umich_jobs as um
+import umich_job_scraper as um
 
 def main():
     print("\nSearching IT jobs...")

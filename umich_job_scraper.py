@@ -133,7 +133,7 @@ def get_jobs_from_ids(job_ids):
                 jobs.append(job)
                 break
             except:
-                print(f"Failed {attempts} to scrape job {job_id}")
+                print(f"Failed attempt {attempts} to scrape job {job_id}")
                 attempts += 1
                 if attempts > max_attempts:
                     print("Failed all attempts, moving on...")

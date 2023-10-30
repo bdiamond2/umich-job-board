@@ -1,13 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import sys
 
 
 class UMichJob:
     def __init__(self, job_id):
-        self.url = f"https://careers.umich.edu/job_detail/{job_id}/"
         self.job_id = job_id
+        self.url = f"https://careers.umich.edu/job_detail/{job_id}/"
         self.title = ""
         self.location = ""
         self.reg_temp = ""
@@ -40,10 +39,10 @@ def reached_end(soup):
     return False
 
 
-def get_jobs(
+def get_job_ids(
     career_interest="All", page_limit=50, job_limit=None, title="", keyword=""
 ):
-    jobs = []
+    job_ids = []
 
     for pageNum in range(0, page_limit):
         print(f"Scanning page {pageNum+1}...")
@@ -61,17 +60,16 @@ def get_jobs(
             href = a.get("href")
             if href != None and "job_detail" in href:
                 job_id = href.split("/")[2]
-                job = UMichJob(job_id)
-                job.title = a.text
-                jobs.append(job)
+                job_ids.append(job_id)
 
-        if job_limit != None and len(jobs) >= job_limit:
+        if job_limit != None and len(job_ids) >= job_limit:
             break
 
-    return jobs
+    return job_ids
 
 
-def get_job_info(job):
+def get_job_info(job_id):
+    job = UMichJob(job_id)
     response = requests.get(job.url)
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -100,68 +98,48 @@ def get_job_info(job):
         elif "date" in h3_text:
             date_range = p_text.split("-")
             if len(date_range) > 0:
-                job.start_dt = date_range[0].strip()
+                job.start_dt = date_range[0]
             if len(date_range) > 1:
-                job.end_dt = date_range[1].strip()
+                job.end_dt = date_range[1]
         elif "salary" in h3_text:
             salary_range = p_text.split("-")
             if len(salary_range) > 0:
-                job.salary_low = salary_range[0].strip()
+                job.salary_low = money_str_to_float(salary_range[0])
             if len(salary_range) > 1:
-                job.salary_high = salary_range[1].strip()
+                job.salary_high = money_str_to_float(salary_range[1]) 
         elif "interest" in h3_text:
             interests = div.find_all("p")
             for i in interests:
                 job.career_interests.append(i.text)
+        else:
+            pass
+    return job
 
+def money_str_to_float(money_str):
+    return float(money_str.replace("$", "").replace(",", "").strip())
 
-def main(mode="tech"):
-    if mode == "tech":
-        print("\nSearching IT jobs...")
-        jobs = get_jobs(career_interest=210)
-
-        print("Searching 'analyst' jobs...")
-        jobs.extend(get_jobs(title="analyst"))
-
-        print("Searching 'data' jobs...")
-        jobs.extend(get_jobs(title="data"))
-
-        print("Searching 'python' jobs...")
-        jobs.extend(get_jobs(keyword="python"))
-
-        print("Searching 'SQL' jobs...")
-        jobs.extend(get_jobs(keyword="sql"))
-    elif mode == "all":
-        print("\nSearching all jobs...")
-        jobs = get_jobs()
-    else:
-        print("\nInvalid search mode")
-        return
-
-    jobs = list(set(jobs))
-
-    print(f"{len(jobs)} jobs found")
-    print("Scraping job info...")
+def get_jobs_from_ids(job_ids):
+    jobs = []
     count = 0
-    for job in jobs:
+    max_attempts = 5
+    
+    for job_id in job_ids:
         count += 1
         attempts = 1
-        max_attempts = 5
-        print(f"({count}) {job}")
-        try:
-            get_job_info(job)
-        except:
-            print(f"Error scraping info for job {job}, trying again...")
-            while attempts <= max_attempts:
-                try:
-                    get_job_info(job)
-                    break
-                except:
-                    print(f"Failed attempt {attempts}")
-                    attempts += 1
-                    if attempts > max_attempts:
-                        print("Failed all attempts, moving on...")
+        while attempts <= max_attempts:
+            try:
+                job = get_job_info(job_id)
+                print(f"({count}) {job}")
+                jobs.append(job)
+                break
+            except:
+                print(f"Failed {attempts} to scrape job {job_id}")
+                attempts += 1
+                if attempts > max_attempts:
+                    print("Failed all attempts, moving on...")
+    return jobs
 
+def create_jobs_csvs(jobs):
     job_dicts = []
     interest_dicts = []
 
@@ -171,14 +149,83 @@ def main(mode="tech"):
             interest_dicts.append({"job_id": job.job_id, "career_interest": interest})
 
     df_jobs = pd.DataFrame(job_dicts)
+    df_jobs = df_jobs.drop(columns='career_interests') # use the interests table instead
     df_interests = pd.DataFrame(interest_dicts)
 
     df_jobs.to_csv("umich_jobs.csv", index=False)
     df_interests.to_csv("umich_job_interests.csv", index=False)
 
 
+# def main(mode="tech"):
+#     if mode == "tech":
+#         print("\nSearching IT jobs...")
+#         job_ids = get_job_ids(career_interest=210, page_limit=1)
+
+#         # print("Searching 'analyst' jobs...")
+#         # jobs.extend(get_jobs(title="analyst"))
+
+#         # print("Searching 'data' jobs...")
+#         # jobs.extend(get_jobs(title="data"))
+
+#         # print("Searching 'python' jobs...")
+#         # jobs.extend(get_jobs(keyword="python"))
+
+#         # print("Searching 'SQL' jobs...")
+#         # jobs.extend(get_jobs(keyword="sql"))
+#     elif mode == "all":
+#         print("\nSearching all jobs...")
+#         job_ids = get_job_ids()
+#     else:
+#         print("\nInvalid search mode")
+#         return
+
+#     job_ids = list(set(job_ids))
+
+#     print(f"{len(job_ids)} jobs found")
+#     print("Scraping job info...")
+#     count = 0
+#     jobs = []
+
+#     for job_id in job_ids:
+#         count += 1
+#         attempts = 1
+#         max_attempts = 5
+#         try:
+#             job = get_job_info(job_id)
+#             print(f"({count}) {job}")
+#             jobs.append(job)
+#         except:
+#             print(f"Error scraping info for job {job_id}, trying again...")
+#             while attempts <= max_attempts:
+#                 try:
+#                     job = get_job_info(job_id)
+#                     print(f"({count}) {job}")
+#                     break
+#                 except:
+#                     print(f"Failed attempt {attempts}")
+#                     attempts += 1
+#                     if attempts > max_attempts:
+#                         print("Failed all attempts, moving on...")
+
+#     job_dicts = []
+#     interest_dicts = []
+
+#     for job in jobs:
+#         job_dicts.append(vars(job))
+#         for interest in job.career_interests:
+#             interest_dicts.append({"job_id": job.job_id, "career_interest": interest})
+
+#     df_jobs = pd.DataFrame(job_dicts)
+#     df_jobs = df_jobs.drop(columns='career_interests')
+#     df_interests = pd.DataFrame(interest_dicts)
+
+#     df_jobs.to_csv("umich_jobs.csv", index=False)
+#     df_interests.to_csv("umich_job_interests.csv", index=False)
+
+
 if __name__ == "__main__":
-    mode = "tech"
-    if len(sys.argv) > 1:
-        mode = sys.argv[1]
-    main(mode)
+    print("womp womp")
+    # mode = "tech"
+    # if len(sys.argv) > 1:
+    #     mode = sys.argv[1]
+    # main(mode)

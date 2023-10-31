@@ -85,7 +85,7 @@ def get_job_info(job_id):
             continue
 
         h3_text = h3.text.lower()
-        p_text = p.text
+        p_text = p.text.strip()
 
         if "working title" in h3_text:
             job.title = p_text
@@ -98,15 +98,15 @@ def get_job_info(job_id):
         elif "date" in h3_text:
             date_range = p_text.split("-")
             if len(date_range) > 0:
-                job.start_dt = date_range[0]
+                job.start_dt = date_range[0].strip()
             if len(date_range) > 1:
-                job.end_dt = date_range[1]
+                job.end_dt = date_range[1].strip()
         elif "salary" in h3_text:
             salary_range = p_text.split("-")
             if len(salary_range) > 0:
                 job.salary_low = money_str_to_float(salary_range[0])
             if len(salary_range) > 1:
-                job.salary_high = money_str_to_float(salary_range[1]) 
+                job.salary_high = money_str_to_float(salary_range[1])
         elif "interest" in h3_text:
             interests = div.find_all("p")
             for i in interests:
@@ -115,14 +115,16 @@ def get_job_info(job_id):
             pass
     return job
 
+
 def money_str_to_float(money_str):
     return float(money_str.replace("$", "").replace(",", "").strip())
+
 
 def get_jobs_from_ids(job_ids):
     jobs = []
     count = 0
     max_attempts = 5
-    
+
     for job_id in job_ids:
         count += 1
         attempts = 1
@@ -139,6 +141,7 @@ def get_jobs_from_ids(job_ids):
                     print("Failed all attempts, moving on...")
     return jobs
 
+
 def create_jobs_csvs(jobs):
     job_dicts = []
     interest_dicts = []
@@ -149,7 +152,9 @@ def create_jobs_csvs(jobs):
             interest_dicts.append({"job_id": job.job_id, "career_interest": interest})
 
     df_jobs = pd.DataFrame(job_dicts)
-    df_jobs = df_jobs.drop(columns='career_interests') # use the interests table instead
+    df_jobs = df_jobs.drop(
+        columns="career_interests"
+    )  # use the interests table instead
     df_interests = pd.DataFrame(interest_dicts)
 
     df_jobs.to_csv("umich_jobs.csv", index=False)

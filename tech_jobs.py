@@ -1,5 +1,6 @@
 import umich_job_scraper as um
 
+
 def main():
     print("\nSearching IT jobs...")
     job_ids = um.get_job_ids(career_interest=210)
@@ -17,10 +18,18 @@ def main():
     job_ids.extend(um.get_job_ids(keyword="sql"))
 
     job_ids = list(set(job_ids))
-    print(f'{len(job_ids)} jobs found')
+    print(f"{len(job_ids)} jobs found")
 
     jobs = um.get_jobs_from_ids(job_ids)
-    um.create_jobs_csvs(jobs)
+    jobs_a2 = []
+    print("\nFiltering out jobs not located in Ann Arbor...")
+    for job in jobs:
+        # Both U-M and Michigan Medicine:
+        if job.location.find("Ann Arbor") != -1:
+            jobs_a2.append(job)
+    um.create_jobs_csvs(jobs_a2)
+    print("\nDone!")
+
 
 if __name__ == "__main__":
     main()

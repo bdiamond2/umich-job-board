@@ -30,6 +30,17 @@ class UMichJob:
         return hash(self.url)
 
 
+class JobSearchCriteria:
+    def __init__(
+        self, career_interest="All", page_limit=50, job_limit=None, title="", keyword=""
+    ):
+        self.career_interest = career_interest
+        self.page_limit = page_limit
+        self.job_limit = job_limit
+        self.title = title
+        self.keyword = keyword
+
+
 def reached_end(soup):
     end_text = "There are currently no posted jobs fitting the criteria you selected"
     p_tags = soup.find_all("p")
@@ -146,7 +157,35 @@ def get_jobs_from_ids(job_ids):
     return jobs
 
 
-def create_jobs_csvs(jobs):
+def get_jobs(*job_criteria: JobSearchCriteria):
+    """
+    Pass in one or more JobSearchCriteria objects to return a list of
+    UMichJob objects, which can be output to a csv via create_jobs_csv()
+
+    Logic within a JobSearchCriteria is AND, and the logic between
+    multiple JobSearchCriteria passed into this function is OR. In
+    other words, this function returns the union of results from all
+    given JobSearchCriteria arguments.
+    """
+    job_ids = []
+
+    # logic between criteria objects is OR, so extend job_ids for every criteria
+    for c in job_criteria[0]:
+        job_ids.extend(
+            get_job_ids(
+                career_interest=c.career_interest,
+                page_limit=c.page_limit,
+                job_limit=c.job_limit,
+                title=c.title,
+                keyword=c.keyword,
+            )
+        )
+    # get rid of duplicates
+    job_ids = list(set(job_ids))
+    return get_jobs_from_ids(job_ids)
+
+
+def create_jobs_csvs(jobs, filename=None):
     job_dicts = []
     interest_dicts = []
 
@@ -163,7 +202,24 @@ def create_jobs_csvs(jobs):
     df_jobs["end_dt"] = df_jobs["end_dt"].astype("datetime64[ns]")
     df_jobs = df_jobs.sort_values(by="end_dt", ascending=True)
 
-    df_interests = pd.DataFrame(interest_dicts)
+    # df_interests = pd.DataFrame(interest_dicts)
 
-    df_jobs.to_csv("data/umich_jobs.csv", index=False)
-    df_interests.to_csv("data/umich_job_interests.csv", index=False)
+    if filename == None:
+        filename='umich_jobs.csv'
+
+    df_jobs.to_csv(filename, index=False)
+    # df_interests.to_csv("data/umich_job_interests.csv", index=False)
+
+
+def output_jobs(filename, *job_criteria):
+    """
+    Wrapper function that performs a multi-criteria job search
+    and outputs the results to the specified file name.
+
+    Logic within a JobSearchCriteria is AND, and the logic between
+    multiple JobSearchCriteria passed into this function is OR. In
+    other words, this function returns the union of results from all
+    given JobSearchCriteria arguments.
+    """
+    jobs = get_jobs(job_criteria)
+    create_jobs_csvs(jobs, filename)
